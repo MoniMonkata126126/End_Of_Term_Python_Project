@@ -30,9 +30,9 @@ load_button = Button(550, 480, load_img, 300, 250)
 
 # Create objects of the classes needed ti run a game
 enemy = Enemy()
-yellow_tower = YellowTower()
-blue_tower = BlueTower()
-green_tower = GreenTower()
+y_tower = YellowTower.from_tuple()
+b_tower = BlueTower.from_tuple()
+g_tower = GreenTower.from_tuple()
 game_menu = GameMenu()
 
 
@@ -102,7 +102,7 @@ def game_main():
                 # Checks if save button is clicked, if clicked game saves data in txt file and exits to main menu
                 if save_button.check_for_input(mouse_position):
                     file_two = open("/game_data_saves.txt", "w+")
-                    file_two.write("{0};{1};{2}".format(enemy.wave, game_menu.player_money, game_menu.player_health))
+                    file_two.write("{};{};{}".format(enemy.wave, game_menu.player_money, game_menu.player_health))
                     file_two.close()
                     menu_main()
 
@@ -112,19 +112,26 @@ def game_main():
                     # Checks for input on yellow tower buy button and gives coordinates of second mouse press to tower
                     if buy_yellow_button.check_for_input(mouse_position) and can_buy_yellow < 1:
                         click_count_yellow += 1
-                        game_menu.loose_money(yellow_tower.price)
+                        game_menu.loose_money(y_tower.price)
                         can_buy_yellow += 1
                     # If right click pressed, mouse coordinates are given
                     if event.button == 3 and click_count_yellow >= 1:
                         # If towers don't overlap they get placed on already given mouse coordinates
-                        if not yellow_tower.check_for_input(mouse_position) or \
+                        if not y_tower.check_for_input(game_menu.yellow_tower_list, mouse_position) or \
                                 buy_blue_button.check_for_input(mouse_position):
-                            yellow_tower.tower_list.append([yellow_tower.tower_dict, mouse_position])
+                            yellow_tower = YellowTower.from_tuple(mouse_position)
+                            game_menu.yellow_tower_list.append(yellow_tower)
                             click_count_yellow = 0
                             can_buy_yellow = 0
-                        # If towers overlap they spawn a green buffed tower on given mouse coordinates
+                        # If towers overlap they spawn a green buffed tower on given mouse coordinates and delete any
+                        # pre-existing towers
                         else:
-                            green_tower.tower_list.append([yellow_tower.tower_dict, mouse_position])
+                            green_tower = GreenTower.from_tuple(mouse_position)
+                            game_menu.green_tower_list.append(green_tower)
+                            if b_tower.check_for_input(game_menu.blue_tower_list, mouse_position):
+                                b_tower.delete_tower(game_menu.blue_tower_list, mouse_position)
+                            if y_tower.check_for_input(game_menu.yellow_tower_list, mouse_position):
+                                y_tower.delete_tower(game_menu.yellow_tower_list, mouse_position)
 
                 # Checks if shop can be accessed based on money and purchase history
                 if game_menu.player_money > 250 or can_buy_blue >= 1:
@@ -132,75 +139,84 @@ def game_main():
                     # Checks for input on blue tower buy button and gives coordinates of second mouse press to tower
                     if buy_blue_button.check_for_input(mouse_position) and can_buy_blue < 1:
                         click_count_blue += 1
-                        game_menu.loose_money(blue_tower.price)
+                        game_menu.loose_money(b_tower.price)
                         can_buy_blue += 1
                     # If right click pressed, mouse coordinates are given
                     if event.button == 3 and click_count_blue >= 1:
                         # If towers don't overlap they get placed on already given mouse coordinates
-                        if not yellow_tower.check_for_input(mouse_position) or \
+                        if not b_tower.check_for_input(game_menu.blue_tower_list, mouse_position) or \
                                 buy_blue_button.check_for_input(mouse_position):
-                            blue_tower.tower_list.append([yellow_tower.tower_dict, mouse_position])
+                            blue_tower = BlueTower.from_tuple(mouse_position)
+                            game_menu.blue_tower_list.append(blue_tower)
                             click_count_blue = 0
                             can_buy_blue = 0
-                        # If towers overlap they spawn a green buffed tower on given mouse coordinates
+                        # If towers overlap they spawn a green buffed tower on given mouse coordinates and delete any
+                        # pre-existing towers
                         else:
-                            green_tower.tower_list.append([yellow_tower.tower_dict, mouse_position])
+                            green_tower = GreenTower.from_tuple(mouse_position)
+                            game_menu.green_tower_list.append(green_tower)
+                            if y_tower.check_for_input(game_menu.yellow_tower_list, mouse_position):
+                                y_tower.delete_tower(game_menu.yellow_tower_list, mouse_position)
+                            if b_tower.check_for_input(game_menu.blue_tower_list, mouse_position):
+                                b_tower.delete_tower(game_menu.blue_tower_list, mouse_position)
 
                 # Checks if yellow tower is pressed and if it is, it gets upgraded
-                if yellow_tower.check_for_input(mouse_position) and event.button == 1:
-                    yellow_tower.upgrade_tower(mouse_position)
+                if y_tower.check_for_input(game_menu.yellow_tower_list, mouse_position) and event.button == 1:
+                    y_tower.upgrade_tower(game_menu.yellow_tower_list, mouse_position)
 
                 # Checks if blue tower id pressed and if it is, it gets upgraded
-                if blue_tower.check_for_input(mouse_position) and event.button == 1:
-                    blue_tower.upgrade_tower(mouse_position)
+                if b_tower.check_for_input(game_menu.blue_tower_list, mouse_position) and event.button == 1:
+                    b_tower.upgrade_tower(game_menu.blue_tower_list, mouse_position)
 
         # All images are printed on screen and all functions from classes are run and all checks for firing projectiles
         # and for current money, overlapping enemy and tower coordinates and wave number are made
 
         # Prints background
         screen.blit(background_img, (0, 0))
+
         # Prints tower buy buttons
         buy_yellow_button.draw(screen)
         buy_blue_button.draw(screen)
+
         # Changes enemy coordinates and moves them
         enemy.change_coord()
+
         # Prints enemies on screen
-        for coordinates in enemy.enemies_coord:
-            screen.blit(pygame.transform.scale(enemy.enemy_img, (100, 90)), coordinates)
+        enemy.draw_enemies(screen)
+
         # Prints yellow towers on screen
-        for yellow in yellow_tower.tower_list:
-            screen.blit(pygame.transform.scale(yellow_tower.yellow_img, (yellow[0]["width"], yellow[0]["height"])), yellow[1])
+        y_tower.draw_towers(game_menu.yellow_tower_list, screen)
+
         # Prints blue towers on screen
-        for blue in blue_tower.tower_list:
-            screen.blit(pygame.transform.scale(blue_tower.blue_img, (blue[0]["width"], blue[0]["height"])), blue[1])
+        b_tower.draw_towers(game_menu.blue_tower_list, screen)
+
         # Prints green towers on screen
-        for green in green_tower.tower_list:
-            screen.blit(pygame.transform.scale(green_tower.green_img, (green[0]["width"], green[0]["height"])), green[1])
+        g_tower.draw_towers(game_menu.green_tower_list, screen)
+
         # Checks if enemy is in yellow tower range and if it is, tower fires projectile and player gains money
         for position in enemy.enemies_coord:
-            if yellow_tower.attack_enemy(position):
-                yellow_tower.shoot_projectile(position, screen)
-                enemy.loose_health(position, yellow_tower.tower_dict["dmg"])
-                yellow_tower.loop_counter += 1
+            if y_tower.attack_enemy(game_menu.yellow_tower_list, position):
+                y_tower.shoot_projectile(game_menu.yellow_tower_list, position, screen)
+                enemy.loose_health(position, y_tower.dmg)
+                y_tower.loop_counter += 1
                 game_menu.player_money += enemy.money
         # Checks if enemy is in blue tower range and if it is, tower fires projectile and player gains money
         for position in enemy.enemies_coord:
-            if blue_tower.attack_enemy(position):
-                blue_tower.shoot_projectile(position, screen)
-                enemy.loose_health(position, blue_tower.tower_dict["dmg"])
-                blue_tower.loop_counter += 1
+            if b_tower.attack_enemy(game_menu.blue_tower_list, position):
+                b_tower.shoot_projectile(game_menu.blue_tower_list, position, screen)
+                enemy.loose_health(position, b_tower.dmg)
+                b_tower.loop_counter += 1
                 game_menu.player_money += enemy.money
         # Checks if enemy is in green tower range and if it is, tower fires projectile and player gains money
         for position in enemy.enemies_coord:
-            if green_tower.attack_enemy(position):
-                green_tower.shoot_projectile(position, screen)
-                enemy.loose_health(position, green_tower.tower_dict["dmg"])
-                green_tower.loop_counter += 1
+            if g_tower.attack_enemy(game_menu.green_tower_list, position):
+                g_tower.shoot_projectile(game_menu.green_tower_list, position, screen)
+                enemy.loose_health(position, g_tower.dmg)
+                g_tower.loop_counter += 1
                 game_menu.player_money += enemy.money
-        # Checks if enemies crossed the finish line
-        for idx in range(len(enemy.enemies_coord)):
-            if enemy.enemies_coord[idx] == [-10, 730]:
-                game_menu.take_damage(enemy.health[idx])
+
+        # Checks if enemies crossed the finish line and if they did, player takes damage
+        game_menu.take_damage(enemy)
         # Raises enemy wave level if needed
         enemy.new_wave()
         # Prints player health
@@ -214,8 +230,8 @@ def game_main():
         # Updates Screen
         pygame.display.update()
         # Sets pygame loop speed
-        clock.tick(120)
+        clock.tick(360)
 
 
 # Calls Main menu when program starts running
-menu_main()
+game_main()

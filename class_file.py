@@ -5,6 +5,8 @@ import pygame
 class Enemy:
     def __init__(self):
         """
+        Holds value of enemy width
+        Holds value of enemy height
         Holds value of price for killing an enemy,
         wave level
         enemy unit health per wave
@@ -12,9 +14,11 @@ class Enemy:
         enemy image
         list of enemy coordinates
         """
+        self.width = 100
+        self.height = 90
         self.money = 15
         self.wave = 1
-        self.health = [self.wave*2 for i in range(30)]
+        self.health = [self.wave for i in range(30)]
         self.loop_counter = 0
         self.enemy_img = pygame.image.load("game_enemy_img.png").convert_alpha()
         self.enemies_coord = []
@@ -60,10 +64,15 @@ class Enemy:
             self.health.clear()
             self.health = [self.wave*2 for i in range(30)]
 
+    # Draws enemies on screen
+    def draw_enemies(self, screen):
+        for coordinates in self.enemies_coord:
+            screen.blit(pygame.transform.scale(self.enemy_img, (self.width, self.height)), coordinates)
+
 
 # Create Tower class
 class Tower:
-    def __init__(self):
+    def __init__(self, x, y):
         """
         Sets Tower price
         Sets upgrade price
@@ -72,86 +81,113 @@ class Tower:
         Sets a dict of all values held from a tower
         Makes a list for the dictionaries of the towers
         """
+        self.x = x
+        self.y = y
         self.price = 200
         self.upgrade_price = 250
         self.loop_counter = 0
+        self.fire_rate = 35
         self.projectile = pygame.image.load("game_projectile_img.png").convert_alpha()
-        self.tower_dict = {"height": 200, "width": 180, "dmg": 5, "range_x": 450, "range_y": 450}
-        self.tower_list = []
+        self.tower_img = pygame.image.load("game_tower_one_img.png").convert_alpha()
+        if self.x is None and self.y is None:
+            self.tower_rect = None
+        else:
+            self.tower_rect = self.tower_img.get_rect(center=(self.x, self.y))
+        self.height = 200
+        self.width = 180
+        self.dmg = 5
+        self.range_x = 450
+        self.range_y = 450
 
     # Upgrade tower stats
-    def upgrade_tower(self, position):
-        for idx in range(len(self.tower_list)):
-            if self.tower_list[idx][1] == position:
-                right = self.tower_list[idx][1][0] + (self.tower_list[idx][0]["width"] // 2)
-                left = self.tower_list[idx][1][0] - (self.tower_list[idx][0]["width"] // 2)
-                top = self.tower_list[idx][1][1] - (self.tower_list[idx][0]["height"] // 2)
-                bottom = self.tower_list[idx][1][1] - (self.tower_list[idx][0]["height"] // 2)
-                if position[0] in range(left, right) and position[1] in range(top, bottom):
-                    self.tower_list[idx][0]["height"] += 25
-                    self.tower_list[idx][0]["width"] += 25
-                    self.tower_list[idx][0]["range_x"] += 50
-                    self.tower_list[idx][0]["range_y"] += 50
-                    return
+    @staticmethod
+    def upgrade_tower(tower_list,  position):
+        for tower in tower_list:
+            if position[0] in range(tower.tower_rect.left, tower.tower_rect.right) and \
+                    position[1] in range(tower.tower_rect.top, tower.tower_rect.bottom):
+                tower.height += 25
+                tower.width += 25
+                tower.range_x += 50
+                tower.range_y += 50
+                return
 
     # Check if tower x, y overlaps with the x, y of a given target ( mouse position or other tower x, y coordinates )
-    def check_for_input(self, position):
-        for idx in range(len(self.tower_list)):
-            if self.tower_list[idx][1] == position:
-                right = self.tower_list[idx][1][0] + (self.tower_list[idx][0]["width"]//2)
-                left = self.tower_list[idx][1][0] - (self.tower_list[idx][0]["width"]//2)
-                top = self.tower_list[idx][1][1] - (self.tower_list[idx][0]["height"]//2)
-                bottom = self.tower_list[idx][1][1] - (self.tower_list[idx][0]["height"]//2)
-                if position[0] in range(left, right) and position[1] in range(top, bottom):
-                    return True
-            return False
+    @staticmethod
+    def check_for_input(tower_list,  position):
+        for tower in tower_list:
+            if position[0] in range(tower.tower_rect.left, tower.tower_rect.right) and \
+                    position[1] in range(tower.tower_rect.top, tower.tower_rect.bottom):
+                return True
+        return False
+
+    # Draw towers on screen
+    @staticmethod
+    def draw_towers(tower_list, screen):
+        for tower in tower_list:
+            screen.blit(pygame.transform.scale(tower.tower_img, (tower.width, tower.height)), (tower.x, tower.y))
 
     # Checks if enemy is in tower range
-    def attack_enemy(self, position):
-        if self.loop_counter < 15:
+    def attack_enemy(self, tower_list, position):
+        if self.loop_counter < self.fire_rate:
             self.loop_counter += 1
             return
-        for pos in self.tower_list:
-            if position[0] in range((pos[1][0] - pos[0]["range_x"]), (pos[1][0] + pos[0]["range_x"])) and \
-                    position[1] in range((pos[1][1] - pos[0]["range_y"]), (pos[1][1] + pos[0]["range_y"])):
+        for tower in tower_list:
+            if position[0] in range((tower.x - tower.range_x), (tower.x + tower.range_x)) and \
+                    position[1] in range((tower.y - tower.range_y), (tower.y + tower.range_y)):
                 return True
+        return False
 
     # Shoots a projectile
-    def shoot_projectile(self, position, screen):
-        for pos in self.tower_list:
-            if position[0] in range((pos[1][0] - pos[0]["range_x"]), (pos[1][0] + pos[0]["range_x"])) and \
-                    position[1] in range((pos[1][1] - pos[0]["range_y"]), (pos[1][1] + pos[0]["range_y"])):
-                projectile_position_x = (pos[1][0]+position[0])//2
-                projectile_position_y = (pos[1][1]+position[1])//2
+    def shoot_projectile(self, tower_list, position, screen):
+        for tower in tower_list:
+            if position[0] in range((tower.x - tower.range_x), (tower.x + tower.range_x)) and \
+                    position[1] in range((tower.y - tower.range_y), (tower.y + tower.range_y)):
+                projectile_position_x = (tower.x + position[0])//2
+                projectile_position_y = (tower.y + position[1])//2
                 screen.blit(self.projectile, (projectile_position_x, projectile_position_y))
+
+    @classmethod
+    def from_tuple(cls, position=None):
+        if position is None:
+            x, y = None, None
+            return cls(x, y)
+        x, y = position[0], position[1]
+        return cls(x, y)
+
+    @staticmethod
+    def delete_tower(tower_list, position):
+        for idx in range(len(tower_list)):
+            if position[0] in range(tower_list[idx].tower_rect.left, tower_list[idx].tower_rect.right) and \
+                    position[1] in range(tower_list[idx].tower_rect.top, tower_list[idx].tower_rect.bottom):
+                del tower_list[idx]
+                return True
 
 
 # Create varius classes from base Tower class with little changes to base parameters
 class YellowTower(Tower):
-    def __init__(self):
-        Tower.__init__(self)
+    def __init__(self, x, y):
+        super().__init__(x, y)
         self.dmg = 10
-        self.yellow_img = pygame.image.load("game_tower_one_img.png").convert_alpha()
 
 
 # Create varius classes from base Tower class with little changes to base parameters
 class BlueTower(Tower):
-    def __init__(self):
-        Tower.__init__(self)
+    def __init__(self, x, y):
+        super().__init__(x, y)
         self.price = 50
         self.range_x = 600
         self.range_y = 600
-        self.blue_img = pygame.image.load("game_tower_two_img.png").convert_alpha()
+        self.tower_img = pygame.image.load("game_tower_two_img.png").convert_alpha()
 
 
 # Create varius classes from base Tower class with little changes to base parameters
 class GreenTower(Tower):
-    def __init__(self):
-        Tower.__init__(self)
+    def __init__(self, x, y):
+        super().__init__(x, y)
         self.range_x = 750
         self.range_y = 750
         self.dmg = 30
-        self.green_img = pygame.image.load("game_tower_three_img.png").convert_alpha()
+        self.tower_img = pygame.image.load("game_tower_three_img.png").convert_alpha()
 
 
 # Create a button class for all buttons in game
@@ -196,10 +232,22 @@ class GameMenu:
         self.player_money = 300
         self.WHITE = (255, 255, 255)
         self.font = pygame.font.Font(None, 50)
+        self.yellow_tower_list = []
+        self.blue_tower_list = []
+        self.green_tower_list = []
+        self.count_enemy_dmg = [0 for i in range(30)]
+        self.wave_counter = 1
 
     # Player takes damage if enemy crosses finish line
-    def take_damage(self, damage):
-        self.player_health = self.player_health - damage
+    def take_damage(self, enemy):
+        for idx in range(len(enemy.enemies_coord)):
+            if enemy.enemies_coord[idx] == [-10, 730] and self.count_enemy_dmg[idx] == 0:
+                self.player_health = self.player_health - enemy.health[idx]
+                self.count_enemy_dmg[idx] = 1
+        if enemy.wave > self.wave_counter:
+            for idx in range(30):
+                self.count_enemy_dmg[idx] = 0
+            self.wave_counter = enemy.wave
 
     # Prints player health
     def get_health(self, screen):
